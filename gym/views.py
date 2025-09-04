@@ -48,3 +48,105 @@ class MensalidadeDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = MensalidadeSerializer
 
 
+# ============= TREINO CRUD =============
+class TreinoListCreateView(generics.ListCreateAPIView):
+    queryset = Treino.objects.select_related('aluno', 'personal').prefetch_related('exercicios')
+    
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return TreinoCreateSerializer
+        return TreinoSerializer
+    
+    def get_queryset(self):
+        queryset = Treino.objects.select_related('aluno', 'personal').prefetch_related('exercicios')
+        aluno_id = self.request.query_params.get('aluno')
+        personal_id = self.request.query_params.get('personal')
+        
+        if aluno_id:
+            queryset = queryset.filter(aluno_id=aluno_id)
+        if personal_id:
+            queryset = queryset.filter(personal_id=personal_id)
+            
+        return queryset
+
+
+class TreinoDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Treino.objects.select_related('aluno', 'personal').prefetch_related('exercicios')
+    serializer_class = TreinoSerializer
+
+
+# ============= EXERCÍCIO CRUD =============
+class ExercicioListCreateView(generics.ListCreateAPIView):
+    queryset = Exercicio.objects.select_related('treino')
+    serializer_class = ExercicioSerializer
+    
+    def get_queryset(self):
+        queryset = Exercicio.objects.select_related('treino')
+        treino_id = self.request.query_params.get('treino')
+        if treino_id:
+            queryset = queryset.filter(treino_id=treino_id)
+        return queryset
+
+
+class ExercicioDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Exercicio.objects.select_related('treino')
+    serializer_class = ExercicioSerializer
+
+
+# ============= VIEWS PERSONALIZADAS =============
+@api_view(['GET'])
+def alunos_personal(request, personal_id):
+    """Lista todos os alunos que possuem treinos com um personal específico"""
+    personal = get_object_or_404(Usuario, id=personal_id, is_personal=True)
+    treinos = Treino.objects.filter(personal=personal).select_related('aluno')
+    alunos = list(set([treino.aluno for treino in treinos]))
+    serializer = UsuarioSerializer(alunos, many=True)
+    return Response(serializer.data)
+
+
+@api_view(['GET'])
+def status_mensalidade(request, aluno_id):
+    """Verifica o status da mensalidade de um aluno"""
+    aluno = get_object_or_404(Usuario, id=aluno_id)
+    from datetime import date
+    
+    try:
+        ultima_mensalidade = Mensalidade.objects.filter(aluno=aluno).latest('validade')
+        ativo = ultima_mensalidade.validade >= date.today()
+        
+        return Response({
+            'aluno': aluno.nome,
+            'ativo': ativo,
+            'ultima_mensalidade': MensalidadeSerializer(ultima_mensalidade).data,
+            'dias_restantes': (ultima_mensalidade.validade - date.today()).days if ativo else 0
+        })
+    except Mensalidade.DoesNotExist:
+        return Response({
+            'aluno': aluno.nome,
+            'ativo': False,
+            'ultima_mensalidade': None,
+            'dias_restantes': 0
+        })
+
+
+@api_view(['GET'])
+def dashboard_stats(request):
+    """Estatísticas gerais da academia"""
+    total_usuarios = Usuario.objects.count()
+    total_alunos = Usuario.objects.filter(is_personal=False).count()
+    total_personals = Usuario.objects.filter(is_personal=True).count()
+    total_treinos = Treino.objects.count()
+    
+    # Alunos ativos (com mensalidade válida)
+    from datetime import date
+    mensalidades_ativas = Mensalidade.objects.filter(validade__gte=date.today())
+    alunos_ativos = mensalidades_ativas.values_list('aluno', flat=True).distinct().count()
+    
+    return Response({
+        'total_usuarios': total_usuarios,
+        'total_alunos': total_alunos,
+        'total_personals': total_personals,
+        'total_treinos': total_treinos,
+        'alunos_ativos': alunos_ativos,
+        'alunos_inativos': total_alunos - alunos_ativos
+    })
