@@ -1,3 +1,5 @@
+![Relatório de Cobertura de Testes](TDD.png)
+
 # Testes usando Selenium
 
 # Testes com Selenium
@@ -102,6 +104,3 @@ campo.send_keys("Selenium WebDriver\n")
 
 print("Título da página:", driver.title)
 driver.quit()
-
-
-![Relatório de Cobertura de Testes](TDD.png)
