@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import Usuario, Mensalidade, Treino, Exercicio
-
+from datetime import date
 
 class UsuarioSerializer(serializers.ModelSerializer):
     class Meta:
@@ -8,7 +8,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
         fields = '__all__'
         
     def validate_data_nascimento(self, value):
-        if value and value > serializers.DateField().to_representation(serializers.datetime.date.today()):
+        if value and value > date.today():
             raise serializers.ValidationError("Data de nascimento não pode ser futura.")
         return value
 

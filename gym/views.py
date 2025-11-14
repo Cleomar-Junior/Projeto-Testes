@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from django.shortcuts import get_object_or_404
 from .models import Usuario, Mensalidade, Treino, Exercicio
+from django.db import models
 from .serializers import (
     UsuarioSerializer, 
     MensalidadeSerializer, 
@@ -149,4 +150,24 @@ def dashboard_stats(request):
         'total_treinos': total_treinos,
         'alunos_ativos': alunos_ativos,
         'alunos_inativos': total_alunos - alunos_ativos
+    })
+
+@api_view(['GET'])
+def personal_mais_popular(request):
+    """Retorna o personal trainer com o maior número de alunos distintos."""
+    # Conta alunos distintos para cada personal e ordena de forma decrescente
+    popular_personal = (
+        Usuario.objects.filter(is_personal=True)
+        .annotate(total_alunos=models.Count('treinos_orientados__aluno', distinct=True))
+        .order_by('-total_alunos')
+        .first()
+    )
+
+    if not popular_personal:
+        return Response({"detail": "Nenhum personal trainer encontrado."}, status=404)
+
+    serializer = UsuarioSerializer(popular_personal)
+    return Response({
+        **serializer.data,
+        'total_alunos': popular_personal.total_alunos
     })
