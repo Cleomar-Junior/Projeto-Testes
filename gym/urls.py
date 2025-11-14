@@ -22,4 +22,7 @@ urlpatterns = [
     path('personal/<int:personal_id>/alunos/', views.alunos_personal, name='alunos-personal'),
     path('aluno/<int:aluno_id>/status-mensalidade/', views.status_mensalidade, name='status-mensalidade'),
     path('dashboard/stats/', views.dashboard_stats, name='dashboard-stats'),
+
+    path('personal/mais-popular/', views.personal_mais_popular, name='personal-mais-popular'),
+
 ]
