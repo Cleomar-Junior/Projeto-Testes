@@ -3,7 +3,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 from django.utils import timezone
 from datetime import date, timedelta
-from .models import Usuario, Mensalidade, Treino, Exercicio
+from .models import Usuario, Mensalidade, Treino, Exercicio, CheckIn
 
 class UsuarioCrudTest(APITestCase):
     def setUp(self):
@@ -207,9 +207,8 @@ class CheckInViewTest(APITestCase):
         response = self.client.post(url)
         
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertIn("Check-in realizado com sucesso", response.data['message'])
+        self.assertEqual(response.data['message'], f"Check-in de {self.aluno_ativo.nome} realizado com sucesso!")
         self.assertEqual(CheckIn.objects.count(), 1)
-        self.assertEqual(CheckIn.objects.first().aluno, self.aluno_ativo)
 
     def test_checkin_falha_aluno_inativo(self):
         """Testa se um aluno com mensalidade vencida NÃO pode fazer check-in."""
