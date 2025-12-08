@@ -47,3 +47,10 @@ class Exercicio(models.Model):
 
     def __str__(self):
         return f"{self.nome} ({self.series}x{self.repeticoes})"    
+
+class CheckIn(models.Model):
+    aluno = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name="checkins")
+    data_hora_checkin = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.aluno.nome} - {self.data_hora_checkin.strftime('%d/%m/%Y %H:%M')}" #Ajuste no formato de data/hora
