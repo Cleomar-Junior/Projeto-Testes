@@ -3,7 +3,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 from django.utils import timezone
 from datetime import date, timedelta
-from .models import Usuario, Mensalidade, Treino, Exercicio
+from .models import Usuario, Mensalidade, Treino, Exercicio, CheckIn
 
 class UsuarioCrudTest(APITestCase):
     def setUp(self):
@@ -178,3 +178,52 @@ class TddExampleTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['nome'], "Personal Ana")
         self.assertEqual(response.data['total_alunos'], 2)
+
+class CheckInViewTest(APITestCase):
+    def setUp(self):
+        # Cria um personal e um aluno
+        self.personal = Usuario.objects.create(nome="Personal Zé", is_personal=True)
+        self.aluno_ativo = Usuario.objects.create(nome="Aluno João", is_personal=False)
+        self.aluno_inativo = Usuario.objects.create(nome="Aluno Maria", is_personal=False)
+        
+        # Cria uma mensalidade ativa para o aluno João
+        Mensalidade.objects.create(
+            aluno=self.aluno_ativo,
+            data_pagamento=date.today(),
+            validade=date.today() + timedelta(days=30),
+            valor=100.0
+        )
+        # Cria uma mensalidade vencida para a aluna Maria
+        Mensalidade.objects.create(
+            aluno=self.aluno_inativo,
+            data_pagamento=date.today() - timedelta(days=60),
+            validade=date.today() - timedelta(days=30),
+            valor=100.0
+        )
+
+    def test_checkin_sucesso_aluno_ativo(self):
+        """Testa se um aluno com mensalidade ativa pode fazer check-in."""
+        url = reverse('aluno-checkin', kwargs={'aluno_id': self.aluno_ativo.pk})
+        response = self.client.post(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['message'], f"Check-in de {self.aluno_ativo.nome} realizado com sucesso!")
+        self.assertEqual(CheckIn.objects.count(), 1)
+
+    def test_checkin_falha_aluno_inativo(self):
+        """Testa se um aluno com mensalidade vencida NÃO pode fazer check-in."""
+        url = reverse('aluno-checkin', kwargs={'aluno_id': self.aluno_inativo.pk})
+        response = self.client.post(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIn("Mensalidade inativa", response.data['error'])
+        self.assertEqual(CheckIn.objects.count(), 0)
+
+    def test_checkin_falha_usuario_eh_personal(self):
+        """Testa se um personal trainer NÃO pode fazer check-in."""
+        url = reverse('aluno-checkin', kwargs={'aluno_id': self.personal.pk})
+        response = self.client.post(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("Apenas alunos podem fazer check-in", response.data['error'])
+        self.assertEqual(CheckIn.objects.count(), 0)

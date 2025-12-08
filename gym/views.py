@@ -2,8 +2,9 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from django.shortcuts import get_object_or_404
-from .models import Usuario, Mensalidade, Treino, Exercicio
+from .models import Usuario, Mensalidade, Treino, Exercicio, CheckIn
 from django.db import models
+from datetime import date
 from .serializers import (
     UsuarioSerializer, 
     MensalidadeSerializer, 
@@ -171,3 +172,33 @@ def personal_mais_popular(request):
         **serializer.data,
         'total_alunos': popular_personal.total_alunos
     })
+
+@api_view(['POST'])
+def aluno_checkin(request, aluno_id):
+    """
+    Registra o check-in de um aluno, verificando se sua mensalidade está ativa.
+    """
+    try:
+        aluno = Usuario.objects.get(pk=aluno_id)
+    except Usuario.DoesNotExist:
+        return Response({"error": "Aluno não encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+    # Regra 1: Apenas alunos podem fazer check-in
+    if aluno.is_personal:
+        return Response({"error": "Apenas alunos podem fazer check-in."}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Regra 2: Verificar se a mensalidade está ativa
+    try:
+        ultima_mensalidade = Mensalidade.objects.filter(aluno=aluno).latest('validade')
+        if ultima_mensalidade.validade < date.today():
+            return Response({"error": "Mensalidade inativa. Verifique sua assinatura."}, status=status.HTTP_403_FORBIDDEN)
+    except Mensalidade.DoesNotExist:
+        return Response({"error": "Aluno não possui mensalidade registrada."}, status=status.HTTP_403_FORBIDDEN)
+
+    # Se passou por todas as regras, registrar o check-in
+    CheckIn.objects.create(aluno=aluno)
+    
+    return Response(
+        {"message": f"Check-in de {aluno.nome} realizado com sucesso!"}, 
+        status=status.HTTP_201_CREATED
+    )

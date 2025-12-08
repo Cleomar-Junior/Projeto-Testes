@@ -25,4 +25,5 @@ urlpatterns = [
 
     path('personal/mais-popular/', views.personal_mais_popular, name='personal-mais-popular'),
 
+    path('aluno/<int:aluno_id>/checkin/', views.aluno_checkin, name='aluno-checkin'), 
 ]
